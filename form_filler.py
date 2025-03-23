@@ -5,19 +5,19 @@ import os
 from os.path import isfile, join
 
 
-
-
 class Form_Filler:
     from config import (
         user_name,
         user_email,
         user_phone,
         nom_tresorie,
+        nom_presidence,
         default_gas_rate,
-        do_sign,
+        sign,
         signature_filename,
         purchase_form_filename,
-        gas_form_filename
+        gas_form_filename,
+        deposit_form_filename,
     )
 
     form = None
@@ -59,11 +59,46 @@ class Form_Filler:
         time = datetime.datetime.now()
         s.page.insert_text((105, 570), time.strftime("%d-%b-%Y"))
 
-        s.sign((355, 533, 400, 583))
+        s.signForm((355, 533, 400, 583))
         s.page.insert_text((255, 630), s.nom_presidence)
         s.page.insert_text((355, 630), s.nom_tresorie)
         s.add()
         s.form.save(f"remboursement {project} {name} {time.strftime('%Hh%M')}.pdf")
+
+    def deposit(s):
+        s.page.insert_text((175, 97), "JDIS")
+        s.page.insert_text((78, 140), "X")
+        name = input("Provenance du dépot: ")
+        s.page.insert_text((250, 175), name)
+        s.page.insert_text((250, 205), s.user_name)
+        s.page.insert_text((110, 235), s.user_email + "@usherbrooke.ca")
+        s.page.insert_text((420, 235), s.user_phone)
+        s.page.insert_text((175, 270), input("Montant déposé: ") + "$")
+        method = input(
+            "Méthode de dépot? (Argent/Chèque/[Dépot direct]/Square)"
+        ).lower()
+        method = method[0] if method else "d"
+        match method:
+            case "a":
+                s.page.insert_text((78, 299), "X")
+            case "c":
+                s.page.insert_text((78, 330), "X")
+            case "d":
+                s.page.insert_text((225, 299), "X")
+            case "s":
+                s.page.insert_text((225, 330), "X")
+            case _:
+                s.page.insert_text((320, 330), "X")
+        s.check((227, 373), (287, 373), "Activité de financement? (Y/[N]): ")
+        s.check((227, 400), (287, 400), "Commandite? (Y/[N]): ")
+        s.textfield((210, 440, 540, 520), "Description de l'activité: ")
+        time = datetime.datetime.now()
+        s.page.insert_text((105, 570), time.strftime("%d-%b-%Y"))
+
+        s.signForm((425, 575, 470, 625))
+        s.page.insert_text((255, 575), s.nom_presidence)
+        s.page.insert_text((425, 575), s.nom_tresorie)
+        s.form.save(f"dépot {name} {time.strftime('%Hh%M')}.pdf")
 
     def gas(s):
         s.page.insert_text((170, 97), "JDIS")
@@ -75,7 +110,9 @@ class Form_Filler:
         s.page.insert_text((415, 240), s.user_phone)
         s.page.insert_text((200, 280), input("Adresse de destination: "))
         distance = float(input("Distance: "))
-        taux_essence = s.default_gas_rate
+
+        taux_essence = input("Taux essence [0.20]: ")
+        taux_essence = s.default_gas_rate if not taux_essence else float(taux_essence)
         # taux_essence = float(input("Taux essence: "))
         s.page.insert_text((128, 335), f"{distance}km")
         s.page.insert_text((370, 337), f"{taux_essence}$")
@@ -87,17 +124,15 @@ class Form_Filler:
         s.textfield((210, 505, 540, 585), "Raison du déplacement: ")
         time = datetime.datetime.now()
         s.page.insert_text((105, 600), time.strftime("%d-%b-%Y"))
-        s.sign((435, 585, 480, 660))
-        s.form.save(
-            f"remboursement essence {project} {name} {time.strftime('%Hh%M')}.pdf"
-        )
+        s.signForm((435, 585, 480, 660))
+        s.form.save(f"essence {project} {name} {time.strftime('%Hh%M')}.pdf")
 
     def textfield(s, rect, prompt):
         while 0 >= s.page.insert_textbox(rect, input(prompt), lineheight=2.25):
             print("Textfield too long")
 
-    def sign(s, rect):
-        if s.do_sign:
+    def signForm(s, rect):
+        if s.sign:
             s.page.insert_image(rect, filename=s.signature_filename)
 
     def open(s):
@@ -149,7 +184,7 @@ class Form_Filler:
         for i in s.get_file_index_list():
             filename = s.files[i]
             file_extension = os.path.splitext(filename)[1]
-            if file_extension == ".pdf" and pymupdf.open(filename).page_count > 1:
+            if file_extension == ".pdf":
                 pdf_file_list.append(i)
             else:
                 image_list.append(i)
@@ -205,7 +240,7 @@ class Form_Filler:
         s.form.save("test.pdf")
 
     def select(s):
-        match input("Type de formulaire? [Remboursement|Essence]: ").lower()[0]:
+        match input("Type de formulaire? [Remboursement|Essence|Dépot]: ").lower()[0]:
             case "r":
                 s.base_filename = s.purchase_form_filename
                 s.open()
@@ -214,6 +249,10 @@ class Form_Filler:
                 s.base_filename = s.gas_form_filename
                 s.open()
                 s.gas()
+            case "d":
+                s.base_filename = s.deposit_form_filename
+                s.open()
+                s.deposit()
             case "t":
                 s.test()
             case _:

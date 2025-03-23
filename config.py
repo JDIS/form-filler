@@ -6,7 +6,8 @@ sign = False  # true si t'es trésorier(e)
 
 purchase_form_filename = "E24-Remboursement-Achat.pdf"
 gas_form_filename = "A22-Formulaire de frais km.pdf"
+deposit_form_filename = "A22-Formulaire-dépôt-dargent.pdf"
 signature_filename = "signature.png"
 nom_tresorie = "Ariadne Paradis"
-nom_presidence = "Julien Brisson"
+nom_presidence = "Béatrice Gagnon"
 default_gas_rate = 0.20

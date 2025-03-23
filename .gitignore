@@ -1,0 +1,10 @@
+.venv/*
+*.kdbx
+*.png
+*.jpg
+in/*
+out/*
+*.pyc
+dépot*.pdf
+remboursement*.pdf
+essence*.pdf
