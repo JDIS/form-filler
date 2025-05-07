@@ -63,7 +63,7 @@ class Form_Filler:
         s.page.insert_text((255, 630), s.nom_presidence)
         s.page.insert_text((355, 630), s.nom_tresorie)
         s.add()
-        s.form.save(f"remboursement {project} {name} {time.strftime('%Hh%M')}.pdf")
+        s.save(f"remboursement {project} {name} {time.strftime('%Hh%M')}.pdf")
 
     def deposit(s):
         s.page.insert_text((175, 97), "JDIS")
@@ -98,7 +98,7 @@ class Form_Filler:
         s.signForm((425, 575, 470, 625))
         s.page.insert_text((255, 575), s.nom_presidence)
         s.page.insert_text((425, 575), s.nom_tresorie)
-        s.form.save(f"dépot {name} {time.strftime('%Hh%M')}.pdf")
+        s.save(f"dépot {name} {time.strftime('%Hh%M')}.pdf")
 
     def gas(s):
         s.page.insert_text((170, 97), "JDIS")
@@ -125,7 +125,7 @@ class Form_Filler:
         time = datetime.datetime.now()
         s.page.insert_text((105, 600), time.strftime("%d-%b-%Y"))
         s.signForm((435, 585, 480, 660))
-        s.form.save(f"essence {project} {name} {time.strftime('%Hh%M')}.pdf")
+        s.save(f"essence {project} {name} {time.strftime('%Hh%M')}.pdf")
 
     def textfield(s, rect, prompt):
         while 0 >= s.page.insert_textbox(rect, input(prompt), lineheight=2.25):
@@ -234,10 +234,14 @@ class Form_Filler:
                 s.pagefill_count = 0
         s.pagefill_count += 1
 
+    def save(s, output_name):
+        s.form.save(output_name)
+        print(f"Successfully saved {output_name}")
+
     def test(s):
         s.form = pymupdf.open(s.purchase_form_filename)
         s.add_fullpage_image("parkscreenshotsg.png")
-        s.form.save("test.pdf")
+        s.save("test.pdf")
 
     def select(s):
         match input("Type de formulaire? [Remboursement|Essence|Dépot]: ").lower()[0]:
