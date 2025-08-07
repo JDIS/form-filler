@@ -1,14 +1,12 @@
 # config variables
-user_name = "ton nom"
-user_email = "ton courriel avant le @usherbrooke"  # might have to adjust position
-user_phone = "ton num"
-sign = False  # true si t'es trésorier(e)
+user_name = "nom de l'utilisateur du script"
+user_email = "ton courriel avant le @usherbrooke"
+user_phone = "ton numéro de téléphone"
 nom_tresorie = "nom tres du groupe"
 nom_presidence = "nom pres du groupe"
 nom_groupe = "nom de ton groupe"
+type_groupe = "Groupe Technique"  # [Groupe Technique|Groupe de l'AGEG|Promo|CSG]
 default_gas_rate = 0.48
 
-purchase_form_filename = "E24-Remboursement-Achat.pdf"
-gas_form_filename = "A22-Formulaire de frais km.pdf"
-deposit_form_filename = "A22-Formulaire-dépôt-dargent.pdf"
-signature_filename = "signature.png"
+sign_tres = False  # true si t'es trésorier(e)
+signature_tres_filename = "signature.png" # pas modulaire en ce moment
