@@ -142,34 +142,57 @@ class Form_Filler:
     def add(s):
         s.print_cwd_files()
         image_list, pdf_file_list = s.get_image_file_list()
-        s.add_pdf_files(pdf_file_list)
-        image_ratios = s.get_image_ratios(image_list)
-        image_list.sort(key=(lambda i: image_ratios[str(i)]), reverse=True)
-        s.add_images(image_list, image_ratios)
+        image_ratios = s.get_image_ratios(image_list, pdf_file_list)
+        all_files = image_list + pdf_file_list
+        # Sort: files with None ratio (raw PDFs) go last
+        all_files.sort(key=lambda i: (image_ratios[str(i)] is None, image_ratios[str(i)] if image_ratios[str(i)] is not None else 0), reverse=True)
+        s.add_images(image_list, pdf_file_list, image_ratios)
 
     def add_pdf_files(s, pdf_file_list):
         for p in pdf_file_list:
             s.add_file(s.files[p])
 
     def get_file_index_list(s):
-        user_input = input("List files to add (ie: 1,3,5,6): ").strip()
-        if not user_input:
-            return []
-        return list(
-            map(lambda i: int(i), filter(lambda x: x.strip() != "", user_input.split(",")))
-        )
+        while True:
+            user_input = input("List files to add (ie: 1,3,5,6): ").strip()
+            if not user_input:
+                return []
+            try:
+                indices = list(
+                    map(lambda i: int(i), filter(lambda x: x.strip() != "", user_input.split(",")))
+                )
+                return indices
+            except ValueError:
+                print("Invalid input. Please enter only comma-separated numbers (e.g., 0,1,2). Try again.")
 
-    def get_image_ratios(s, image_list):
-        def get_ratio(i):
+    def get_image_ratios(s, image_list, pdf_file_list):
+        def get_ratio(i, is_pdf=False):
             path = os.path.join(s.input_dir, s.files[i])
-            pix = Pixmap(path)
-            return pix.width / pix.height
-
-        return {str(i): get_ratio(i) for i in image_list}
-
-    def add_images(s, image_list, image_ratios):
+            if is_pdf:
+                doc = pymupdf.open(path)
+                page = doc[0]
+                rect = page.rect
+                aspect = rect.width / rect.height
+                # Only add raw if large and aspect ratio is typical for documents
+                if rect.width > 500 and rect.height > 700 and 0.7 <= aspect <= 0.8:
+                    return None  # Signal to add raw
+                return aspect
+            else:
+                pix = Pixmap(path)
+                return pix.width / pix.height
+        ratios = {}
         for i in image_list:
-            if image_ratios[str(i)] <= 0.333:
+            ratios[str(i)] = get_ratio(i)
+        for i in pdf_file_list:
+            ratios[str(i)] = get_ratio(i, is_pdf=True)
+        return ratios
+
+    def add_images(s, image_list, pdf_file_list, image_ratios):
+        for i in image_list + pdf_file_list:
+            ratio = image_ratios[str(i)]
+            if ratio is None:
+                s.add_file(s.files[i])  # Add PDF raw
+            elif ratio <= 0.333:
                 s.add_halfpage_image(s.files[i])
             else:
                 s.add_quarterpage_image(s.files[i])
@@ -219,31 +242,54 @@ class Form_Filler:
         if not file_name:
             file_name = input("File name: ")
         file_path = os.path.join(s.input_dir, file_name)
+        ext = os.path.splitext(file_name)[1]
+        if ext == ".pdf":
+            # Render first page of PDF to image
+            doc = pymupdf.open(file_path)
+            pix = doc[0].get_pixmap()
+            temp_img = file_path + "_temp.png"
+            pix.save(temp_img)
+            img_path = temp_img
+        else:
+            img_path = file_path
         match s.pagefill_count:
             case 1 | 2:
-                s.page.insert_image((298, 0, 595, 842), filename=file_path)
+                s.page.insert_image((298, 0, 595, 842), filename=img_path)
                 s.pagefill_count = 0
             case _:
                 s.page = s.form.new_page(-1, *pymupdf.paper_size("letter"))
-                s.page.insert_image((0, 0, 297, 842), filename=file_path)
+                s.page.insert_image((0, 0, 297, 842), filename=img_path)
                 s.pagefill_count = 2
+        if ext == ".pdf":
+            os.remove(temp_img)
 
     def add_quarterpage_image(s, file_name=""):
         if not file_name:
             file_name = input("File name: ")
         file_path = os.path.join(s.input_dir, file_name)
+        ext = os.path.splitext(file_name)[1]
+        if ext == ".pdf":
+            doc = pymupdf.open(file_path)
+            pix = doc[0].get_pixmap()
+            temp_img = file_path + "_temp.png"
+            pix.save(temp_img)
+            img_path = temp_img
+        else:
+            img_path = file_path
         match s.pagefill_count:
             case 1:
-                s.page.insert_image((0, 421, 287, 842), filename=file_path)
+                s.page.insert_image((0, 421, 287, 842), filename=img_path)
             case 2:
-                s.page.insert_image((298, 0, 595, 421), filename=file_path)
+                s.page.insert_image((298, 0, 595, 421), filename=img_path)
             case 3:
-                s.page.insert_image((298, 421, 595, 842), filename=file_path)
+                s.page.insert_image((298, 421, 595, 842), filename=img_path)
             case _:
                 s.page = s.form.new_page(-1, *pymupdf.paper_size("letter"))
-                s.page.insert_image((0, 0, 297, 421), filename=file_path)
+                s.page.insert_image((0, 0, 297, 421), filename=img_path)
                 s.pagefill_count = 0
         s.pagefill_count += 1
+        if ext == ".pdf":
+            os.remove(temp_img)
 
     def open_and_confirm(s, output_path):
         filename = os.path.basename(output_path)
