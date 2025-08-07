@@ -152,15 +152,20 @@ class Form_Filler:
             s.add_file(s.files[p])
 
     def get_file_index_list(s):
+        user_input = input("List files to add (ie: 1,3,5,6): ").strip()
+        if not user_input:
+            return []
         return list(
-            map(lambda i: int(i), input("List files to add (ie: 1,3,5,6): ").split(","))
+            map(lambda i: int(i), filter(lambda x: x.strip() != "", user_input.split(",")))
         )
 
     def get_image_ratios(s, image_list):
-        return {
-            str(i): (Pixmap(s.files[i]).width / Pixmap(s.files[i]).height)
-            for i in image_list
-        }
+        def get_ratio(i):
+            path = os.path.join(s.input_dir, s.files[i])
+            pix = Pixmap(path)
+            return pix.width / pix.height
+
+        return {str(i): get_ratio(i) for i in image_list}
 
     def add_images(s, image_list, image_ratios):
         for i in image_list:
@@ -170,13 +175,19 @@ class Form_Filler:
                 s.add_quarterpage_image(s.files[i])
 
     def print_cwd_files(s):
+        input_dir = os.path.join(os.getcwd(), "input")
+        if not os.path.exists(input_dir):
+            os.makedirs(input_dir)
+        files = [f for f in os.listdir(input_dir) if isfile(join(input_dir, f))]
         i = 0
-        print("\n Working directory files")
-        for file in s.files:
+        print("\n './input' directory files")
+        for file in files:
             file_extension = os.path.splitext(file)[1]
             if file_extension in Form_Filler.expected_file_extensions:
                 print(f"[{i}] {file}")
                 i += 1
+        s.files = files
+        s.input_dir = input_dir
 
     def get_image_file_list(s):
         image_list = []
@@ -193,50 +204,71 @@ class Form_Filler:
     def add_file(s, file_name=""):
         if not file_name:
             file_name = input("File name: ")
-        s.form.insert_file(file_name)
-
-    def add_image(s, file_name=""):
-        if not file_name:
-            file_name = input("File name: ")
+        file_path = os.path.join(s.input_dir, file_name)
+        s.form.insert_file(file_path)
 
     def add_fullpage_image(s, file_name=""):
         if not file_name:
             file_name = input("File name: ")
+        file_path = os.path.join(s.input_dir, file_name)
         s.page = s.form.new_page(-1, *pymupdf.paper_size("letter"))
-        s.page.insert_image((0, 0, 595, 842), filename=file_name)
+        s.page.insert_image((0, 0, 595, 842), filename=file_path)
         s.pagefill_count = 0
 
     def add_halfpage_image(s, file_name=""):
         if not file_name:
             file_name = input("File name: ")
+        file_path = os.path.join(s.input_dir, file_name)
         match s.pagefill_count:
             case 1 | 2:
-                s.page.insert_image((298, 0, 595, 842), filename=file_name)
+                s.page.insert_image((298, 0, 595, 842), filename=file_path)
                 s.pagefill_count = 0
             case _:
                 s.page = s.form.new_page(-1, *pymupdf.paper_size("letter"))
-                s.page.insert_image((0, 0, 297, 842), filename=file_name)
+                s.page.insert_image((0, 0, 297, 842), filename=file_path)
                 s.pagefill_count = 2
 
     def add_quarterpage_image(s, file_name=""):
         if not file_name:
             file_name = input("File name: ")
+        file_path = os.path.join(s.input_dir, file_name)
         match s.pagefill_count:
             case 1:
-                s.page.insert_image((0, 421, 287, 842), filename=file_name)
+                s.page.insert_image((0, 421, 287, 842), filename=file_path)
             case 2:
-                s.page.insert_image((298, 0, 595, 421), filename=file_name)
+                s.page.insert_image((298, 0, 595, 421), filename=file_path)
             case 3:
-                s.page.insert_image((298, 421, 595, 842), filename=file_name)
+                s.page.insert_image((298, 421, 595, 842), filename=file_path)
             case _:
                 s.page = s.form.new_page(-1, *pymupdf.paper_size("letter"))
-                s.page.insert_image((0, 0, 297, 421), filename=file_name)
+                s.page.insert_image((0, 0, 297, 421), filename=file_path)
                 s.pagefill_count = 0
         s.pagefill_count += 1
 
+    def open_and_confirm(s, output_path):
+        filename = os.path.basename(output_path)
+        # Open the file using the default application
+        if os.name == "nt":
+            os.startfile(output_path)
+        elif os.name == "posix":
+            os.system(f'xdg-open "{output_path}"')
+        else:
+            print("Automatic file opening not supported on this OS.")
+        # Ask for confirmation
+        response = input(f"Please review '{filename}'. Is it correct? ([Y]/n): ").strip().lower()
+        if response == "n":
+            os.remove(output_path)
+            print(f"Deleted '{filename}'. Trying again.")
+            s.select()
+
     def save(s, output_name):
-        s.form.save(output_name)
+        output_dir = os.path.join(os.getcwd(), "output")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        output_path = os.path.join(output_dir, output_name)
+        s.form.save(output_path)
         print(f"Successfully saved {output_name}")
+        s.open_and_confirm(output_path)
 
     def test(s):
         s.form = pymupdf.open(s.purchase_form_filename)
